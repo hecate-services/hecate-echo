@@ -2,15 +2,19 @@
 
 **Always-on io.macula.echo, the mesh's hello-world target every SDK quickstart calls**
 
-## Status: scaffold
+## Status: live
 
-The service boots, joins the mesh and answers `/health` on 8461. It
-does nothing else yet.
+The service boots, joins the mesh, answers `/health` on 8461, and advertises
+`io.macula.echo` -- the hello-world target every Macula SDK's own quickstart
+README calls first. Advertised through the standard `hecate_om_capabilities`
+path (`hecate_echo_service:capabilities/0`), which asserts the all-zero realm
+every quickstart calls from before returning the capability list: a realm
+mismatch here is silent on the wire (`unknown_next_peer`, indistinguishable
+from nobody listening), so a config mistake crashes this service loudly
+instead of recreating that bug quietly.
 
-It announces no capability and asks the realm for no authority, because it can do
-nothing yet. Both lists grow when the thing they name exists. Advertising a
-capability before it exists puts a lie on the mesh where another service can find
-it and call it.
+It asks the realm for no authority beyond its own scope: `io.macula.echo` is
+deliberately public (`auth => open`), not gated by a UCAN grant.
 
 ## Running it
 

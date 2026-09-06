@@ -58,11 +58,13 @@ info_version_matches_the_application_test() ->
 health_is_green_test() ->
     ?assertEqual(ok, ?SERVICE:health()).
 
-%% An empty list is the correct answer for a service that does nothing yet. The
-%% assertion is here so that adding a capability breaks a test and makes someone
-%% write down what the service can now actually do.
-announces_no_capability_yet_test() ->
-    ?assertEqual([], ?SERVICE:capabilities()).
+%% Without `hecate_om_identity' running, `realm/0' returns `{error,
+%% not_booted}' -- `capabilities/0' must crash rather than silently fall
+%% through to advertising on the wrong realm, so this asserts the crash,
+%% not a return value.
+announces_io_macula_echo_test() ->
+    ?assertError({hecate_echo_realm_mismatch, {error, not_booted}},
+                 ?SERVICE:capabilities()).
 
 identity_spec_has_the_shape_hecate_om_expects_test() ->
     #{scope := Scope, actions := Actions,
@@ -72,25 +74,24 @@ identity_spec_has_the_shape_hecate_om_expects_test() ->
     ?assert(is_list(Resources)),
     ?assert(is_integer(Ttl) andalso Ttl > 0).
 
-%% A resource this service is not authorised for is a publish the realm would
-%% refuse once UCAN delegation lands. Asking for nothing and claiming nothing
-%% must stay in step, so the two are asserted together.
+%% `io.macula.echo' is deliberately public: this service asks the realm
+%% for no authority beyond its own scope regardless of what it announces,
+%% since `auth => open' on the capability itself is what makes it
+%% callable by anyone, not a UCAN grant.
 authority_matches_what_is_announced_test() ->
     #{actions := Actions, resources := Resources} = ?SERVICE:identity_spec(),
-    ?assertEqual([], ?SERVICE:capabilities()),
     ?assertEqual([], Actions),
     ?assertEqual([], Resources).
 
 %% The supervisor starts and stops cleanly on its own, without hecate_om.
-%% `hecate_echo_advertiser''s init/1 calls `hecate_om:macula_client()',
-%% which fails cleanly ({error, not_booted} or similar) with no real
-%% hecate_om running -- `hecate_echo_mesh_rpc:start/0' logs and returns
-%% ok either way, so the supervisor and both children still come up.
+%% `io.macula.echo' itself is now advertised by `hecate_om_capabilities'
+%% (a separate, already-running process in a real boot), not by a child
+%% of this supervisor -- so there is exactly one child to check.
 supervisor_starts_and_stops_test() ->
     {ok, Pid} = hecate_echo_sup:start_link(),
     ?assert(is_process_alive(Pid)),
     Children = supervisor:which_children(Pid),
-    ?assertEqual(2, length(Children)),
+    ?assertEqual(1, length(Children)),
     ?assert(lists:all(fun({_Id, Child, _Type, _Mods}) -> is_pid(Child) end, Children)),
     unlink(Pid),
     exit(Pid, shutdown).
